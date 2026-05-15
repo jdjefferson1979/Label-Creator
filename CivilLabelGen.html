@@ -203,6 +203,11 @@
   /* ── PRINT ── */
   @media print {
     @page { size: 11in 8.5in; margin: 0; }
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
     body { background: #fff !important; color: #000 !important; }
     .app-header, .toolbar, .legend, .instructions, .no-print { display: none !important; }
     .workspace { padding: 0 !important; gap: 0 !important; }
@@ -488,7 +493,12 @@ document.getElementById('printBtn').addEventListener('click', function() {
   // Build print HTML
   let html = `<!DOCTYPE html><html><head><style>
     @page { size: 11in 8.5in; margin: 0; }
-    * { margin:0; padding:0; box-sizing:border-box; }
+    * {
+      margin:0; padding:0; box-sizing:border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
     body { width: 11in; height: 8.5in; }
     .sheet {
       width: 11in; height: 8.5in;
@@ -521,6 +531,9 @@ document.getElementById('printBtn').addEventListener('click', function() {
       font-family: 'JetBrains Mono', monospace;
       font-size: 16pt; font-weight: 700;
       text-align: center;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
     }
   </style></head><body><div class="sheet">`;
 
