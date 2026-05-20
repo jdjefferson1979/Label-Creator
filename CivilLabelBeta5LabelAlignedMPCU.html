@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Civil Label Maker</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242836;
+    --border: #2e3346;
+    --text: #e4e6f0;
+    --text-dim: #8b90a5;
+    --accent: #5b8af5;
+    --accent-glow: rgba(91,138,245,0.15);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  .app-header {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+  }
+  .app-header h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+  .app-header h1 span { color: var(--accent); }
+
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .toolbar label {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .toolbar input[type="text"] {
+    width: 48px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    text-align: center;
+  }
+  .toolbar input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  .btn {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 8px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #4a7ae8; transform: translateY(-1px); }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-dim); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--text); }
+
+  .workspace {
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    max-width: 700px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    background: var(--surface);
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .legend-swatch {
+    width: 14px; height: 14px; border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+
+  /* ── SHEET PREVIEW — landscape with vertical labels ── */
+  /* Labels: 7.5" tall x 1.5" wide, 5 per sheet */
+  .sheet-preview {
+    background: #fff;
+    width: 792px;  /* 11in at 72dpi — landscape width */
+    height: 612px; /* 8.5in at 72dpi — landscape height */
+    border-radius: 4px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .label-card {
+    border: 1.2px solid #444;
+    border-radius: 6px;
+    width: 108px;  /* 1.5in at 72dpi */
+    height: 540px; /* 7.5in at 72dpi */
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: row;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .label-half {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+  }
+  .label-half + .label-half {
+    border-left: 1px dashed #999;
+  }
+
+  .label-content {
+    flex: 1;
+    padding: 4px 6px;
+  }
+
+  .box-stack {
+    display: flex;
+    flex-direction: column;
+    width: 75%;
+  }
+
+  /* Left half: boxes on left side, border on right of boxes */
+  .label-half:first-child .box-stack {
+    border-right: 1px solid #ccc;
+  }
+  /* Right half: boxes on right side, border on left of boxes */
+  .label-half:last-child .box-stack {
+    border-left: 1px solid #ccc;
+  }
+
+  .color-box {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #000;
+    transition: background-color 0.2s;
+  }
+  .color-box:last-child { border-bottom: 1px solid #000; }
+
+  .color-box input {
+    width: 100%; height: 100%;
+    border: none; background: transparent;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(16px, 2.5vw, 32px); font-weight: 700;
+    color: #222; outline: none; cursor: text;
+    padding: 0;
+    line-height: 1;
+  }
+  .color-box input::placeholder { color: #bbb; font-weight: 400; }
+  .color-box.year-box { background: #2962FF; }
+  .color-box.year-box input { color: #fff; font-weight: 700; }
+
+  .instructions {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    max-width: 550px;
+    line-height: 1.5;
+  }
+  .instructions kbd {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+
+  #sheetsContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .sheet-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sheet-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 3px 12px;
+    border-radius: 12px;
+  }
+
+  /* ── PRINT ── */
+  @media print {
+    @page { size: 11in 8.5in; margin: 0; }
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+    body { background: #fff !important; color: #000 !important; }
+    .app-header, .toolbar, .legend, .instructions, .no-print { display: none !important; }
+    .workspace { padding: 0 !important; gap: 0 !important; }
+    .sheet-preview {
+      box-shadow: none !important;
+      border-radius: 0 !important;
+      width: 11in !important;
+      height: 8.5in !important;
+      padding: 0.36in 0.18in !important;
+      gap: 0 !important;
+    }
+    .label-card {
+      width: 1.5in !important;
+      height: 7.5in !important;
+      border: 0.75pt solid #333 !important;
+      border-radius: 4pt !important;
+    }
+    .box-stack { width: 75% !important; }
+    .color-box input { font-size: 16pt !important; }
+    .color-box { border: 1pt solid #000 !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <h1><span>Civil</span> Label Maker</h1>
+  <div class="toolbar">
+    <label>Year:</label>
+    <input type="text" id="yearInput" value="26" maxlength="2">
+    <button class="btn btn-outline" onclick="clearAll()">Clear All</button>
+    <button class="btn btn-primary" id="printBtn">⎙ Print</button>
+  </div>
+</div>
+
+<div class="workspace">
+  <div class="instructions">
+    Type <kbd>0</kbd>–<kbd>9</kbd> in any box to set its color. Top box = year. Navigate with <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>Tab</kbd>.
+  </div>
+  <div class="legend" id="legend"></div>
+  <div id="sheetsContainer"></div>
+</div>
+
+<script>
+const COLOR_MAP = {
+  0:  { name: 'Pink',         bg: '#F48FB1', text: '#3a0a1a' },
+  1:  { name: 'Red',          bg: '#E53935', text: '#fff' },
+  2:  { name: 'Yellow',       bg: '#FFEB3B', text: '#3a3000' },
+  3:  { name: 'Dark Orange',  bg: '#E65100', text: '#fff' },
+  4:  { name: 'Light Green',  bg: '#8BC34A', text: '#1a3000' },
+  5:  { name: 'Dark Green',   bg: '#2E7D32', text: '#fff' },
+  6:  { name: 'Light Blue',   bg: '#42A5F5', text: '#0a1a3a' },
+  7:  { name: 'Dark Purple',  bg: '#6A1B9A', text: '#fff' },
+  8:  { name: 'Lavender',     bg: '#B39DDB', text: '#1a0a2a' },
+  9:  { name: 'Brown',        bg: '#795548', text: '#fff' },
+};
+
+const YEAR_COLOR = { bg: '#2962FF', text: '#ffffff' };
+const LABELS_PER_SHEET = 5;
+const NUM_BOXES = 7;
+
+// All sheets tracked here — each entry is the sheet-preview DOM element
+const sheets = [];
+const container = document.getElementById('sheetsContainer');
+
+// Legend
+const legendEl = document.getElementById('legend');
+Object.entries(COLOR_MAP).forEach(([num, c]) => {
+  legendEl.innerHTML += `<div class="legend-item"><div class="legend-swatch" style="background:${c.bg}"></div>${num} = ${c.name}</div>`;
+});
+
+// ── Create a new sheet and append it ──
+function createSheet() {
+  const sheetIndex = sheets.length;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'sheet-wrapper';
+
+  const badge = document.createElement('div');
+  badge.className = 'sheet-badge';
+  badge.textContent = `Sheet ${sheetIndex + 1}`;
+  wrapper.appendChild(badge);
+
+  const sheetEl = document.createElement('div');
+  sheetEl.className = 'sheet-preview';
+  sheetEl.dataset.sheetIndex = sheetIndex;
+  wrapper.appendChild(sheetEl);
+
+  for (let L = 0; L < LABELS_PER_SHEET; L++) {
+    const globalLabel = sheetIndex * LABELS_PER_SHEET + L;
+    const card = document.createElement('div');
+    card.className = 'label-card';
+
+    for (let H = 0; H < 2; H++) {
+      const half = document.createElement('div');
+      half.className = 'label-half';
+
+      const content = document.createElement('div');
+      content.className = 'label-content';
+
+      const stack = document.createElement('div');
+      stack.className = 'box-stack';
+
+      for (let B = 0; B < NUM_BOXES; B++) {
+        const box = document.createElement('div');
+        box.className = B === 0 ? 'color-box year-box' : 'color-box';
+        box.dataset.globalLabel = globalLabel;
+        box.dataset.half = H;
+        box.dataset.box = B;
+
+        const inp = document.createElement('input');
+        inp.type = 'text';
+
+        if (B === 0) {
+          inp.maxLength = 2;
+          inp.value = document.getElementById('yearInput').value;
+          inp.dataset.isYear = 'true';
+        } else {
+          inp.maxLength = 1;
+          inp.placeholder = '·';
+        }
+
+        inp.addEventListener('input', handleInput);
+        inp.addEventListener('keydown', handleNav);
+        inp.addEventListener('beforeinput', function(e) {
+          if (e.data && !/^\d$/.test(e.data)) {
+            e.preventDefault();
+          }
+        });
+        box.appendChild(inp);
+        stack.appendChild(box);
+      }
+
+      // H===0: boxes | content (boxes on left edge)
+      // H===1: content | boxes (boxes on right edge)
+      if (H === 0) {
+        half.appendChild(stack);
+        half.appendChild(content);
+      } else {
+        half.appendChild(content);
+        half.appendChild(stack);
+      }
+      card.appendChild(half);
+    }
+
+    sheetEl.appendChild(card);
+  }
+
+  container.appendChild(wrapper);
+  sheets.push(sheetEl);
+  return sheetEl;
+}
+
+// ── Helper: get a label card by global index ──
+function getLabelCard(globalLabel) {
+  const sheetIdx = Math.floor(globalLabel / LABELS_PER_SHEET);
+  const localIdx = globalLabel % LABELS_PER_SHEET;
+  if (!sheets[sheetIdx]) return null;
+  return sheets[sheetIdx].children[localIdx] || null;
+}
+
+// ── Helper: total label count across all sheets ──
+function totalLabels() {
+  return sheets.length * LABELS_PER_SHEET;
+}
+
+// ── Check if last label on last sheet has any filled (non-year) box ──
+function checkAutoExpand() {
+  const lastGlobal = totalLabels() - 1;
+  const card = getLabelCard(lastGlobal);
+  if (!card) return;
+  const halfEl = card.querySelectorAll('.label-half')[0];
+  const boxes = halfEl.querySelector('.box-stack').children;
+  for (let B = 1; B < boxes.length; B++) {
+    if (boxes[B].querySelector('input').value.trim() !== '') {
+      createSheet();
+      return;
+    }
+  }
+}
+
+// Year sync
+document.getElementById('yearInput').addEventListener('beforeinput', function(e) {
+  if (e.data && !/^\d$/.test(e.data)) e.preventDefault();
+});
+document.getElementById('yearInput').addEventListener('input', function() {
+  document.querySelectorAll('[data-is-year="true"]').forEach(inp => {
+    inp.value = this.value;
+  });
+});
+
+function applyColor(box, inp, val) {
+  const num = parseInt(val);
+  if (COLOR_MAP[num]) {
+    box.style.backgroundColor = COLOR_MAP[num].bg;
+    inp.style.color = COLOR_MAP[num].text;
+  } else {
+    box.style.backgroundColor = '';
+    inp.style.color = '#222';
+  }
+}
+
+function getMirrorBox(box) {
+  const globalLabel = parseInt(box.dataset.globalLabel);
+  const half = parseInt(box.dataset.half);
+  const bIdx = parseInt(box.dataset.box);
+  const mirrorHalf = half === 0 ? 1 : 0;
+  const card = getLabelCard(globalLabel);
+  const halves = card.querySelectorAll('.label-half');
+  return halves[mirrorHalf].querySelector('.box-stack').children[bIdx];
+}
+
+function handleInput(e) {
+  const inp = e.target;
+  const box = inp.parentElement;
+  const val = inp.value.trim();
+
+  if (inp.dataset.isYear === 'true') {
+    box.style.backgroundColor = YEAR_COLOR.bg;
+    inp.style.color = YEAR_COLOR.text;
+    document.getElementById('yearInput').value = val;
+    document.querySelectorAll('[data-is-year="true"]').forEach(other => {
+      if (other !== inp) other.value = val;
+    });
+    return;
+  }
+
+  applyColor(box, inp, val);
+
+  // Mirror to other half
+  const mirrorBox = getMirrorBox(box);
+  const mirrorInp = mirrorBox.querySelector('input');
+  mirrorInp.value = val;
+  applyColor(mirrorBox, mirrorInp, val);
+
+  // Auto-expand check
+  checkAutoExpand();
+
+  if (val.length >= 1 && parseInt(val) >= 0 && parseInt(val) <= 9) {
+    advanceFocus(inp);
+  } else if (val.length >= 2) {
+    advanceFocus(inp);
+  }
+}
+
+function handleNav(e) {
+  const inp = e.target;
+  const box = inp.parentElement;
+  const stack = box.parentElement;
+  const boxes = [...stack.children];
+  const idx = boxes.indexOf(box);
+  const globalLabel = parseInt(box.dataset.globalLabel);
+  const half = parseInt(box.dataset.half);
+  const bIdx = parseInt(box.dataset.box);
+  const card = stack.closest('.label-card');
+  const halves = [...card.querySelectorAll('.label-half')];
+
+  if (e.key === 'ArrowDown' || e.key === 'Enter') {
+    e.preventDefault();
+    if (idx < boxes.length - 1) {
+      boxes[idx + 1].querySelector('input').focus();
+    } else if (half === 0) {
+      halves[1].querySelector('.box-stack').children[0].querySelector('input').focus();
+    }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (idx > 0) {
+      boxes[idx - 1].querySelector('input').focus();
+    } else if (half === 1) {
+      const topBoxes = halves[0].querySelector('.box-stack').children;
+      topBoxes[topBoxes.length - 1].querySelector('input').focus();
+    }
+  } else if (e.key === 'ArrowRight') {
+    const nextCard = getLabelCard(globalLabel + 1);
+    if (nextCard) {
+      e.preventDefault();
+      nextCard.querySelectorAll('.label-half')[half].querySelector('.box-stack').children[bIdx].querySelector('input').focus();
+    }
+  } else if (e.key === 'ArrowLeft') {
+    if (globalLabel > 0) {
+      const prevCard = getLabelCard(globalLabel - 1);
+      if (prevCard) {
+        e.preventDefault();
+        prevCard.querySelectorAll('.label-half')[half].querySelector('.box-stack').children[bIdx].querySelector('input').focus();
+      }
+    }
+  } else if (e.key === 'Tab' && !e.shiftKey) {
+    e.preventDefault();
+    if (idx < boxes.length - 1) {
+      boxes[idx + 1].querySelector('input').focus();
+    } else {
+      const nextCard = getLabelCard(globalLabel + 1);
+      if (nextCard) {
+        nextCard.querySelectorAll('.label-half')[0].querySelector('.box-stack').children[1].querySelector('input').focus();
+      }
+    }
+  }
+}
+
+function advanceFocus(inp) {
+  const box = inp.parentElement;
+  const stack = box.parentElement;
+  const boxes = [...stack.children];
+  const idx = boxes.indexOf(box);
+  const globalLabel = parseInt(box.dataset.globalLabel);
+
+  if (idx < boxes.length - 1) {
+    setTimeout(() => boxes[idx + 1].querySelector('input').focus(), 50);
+  } else {
+    // Last box in this label — jump to next label's first fillable box
+    const nextCard = getLabelCard(globalLabel + 1);
+    if (nextCard) {
+      setTimeout(() => {
+        nextCard.querySelectorAll('.label-half')[0].querySelector('.box-stack').children[1].querySelector('input').focus();
+      }, 50);
+    }
+  }
+}
+
+function clearAll() {
+  document.querySelectorAll('.box-stack .color-box').forEach(box => {
+    const inp = box.querySelector('input');
+    if (inp.dataset.isYear === 'true') return;
+    inp.value = '';
+    box.style.backgroundColor = '';
+    inp.style.color = '#222';
+  });
+  // Remove extra sheets, keep only the first
+  while (sheets.length > 1) {
+    const removed = sheets.pop();
+    removed.parentElement.remove();
+  }
+}
+
+// ── Print handler — gathers ALL sheets ──
+document.getElementById('printBtn').addEventListener('click', function() {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('Please allow popups to print, or use Ctrl+P / Cmd+P.');
+    return;
+  }
+
+  // Gather all label data across all sheets
+  const allSheetData = [];
+  for (let S = 0; S < sheets.length; S++) {
+    const sheetLabels = [];
+    for (let L = 0; L < LABELS_PER_SHEET; L++) {
+      const card = sheets[S].children[L];
+      const halfEl = card.querySelectorAll('.label-half')[0];
+      const boxes = halfEl.querySelector('.box-stack').children;
+      const labelData = [];
+      for (let B = 0; B < NUM_BOXES; B++) {
+        const box = boxes[B];
+        const inp = box.querySelector('input');
+        const val = inp.value;
+        const bg = box.style.backgroundColor || (B === 0 ? '#2962FF' : '');
+        const color = inp.style.color || (B === 0 ? '#fff' : '#222');
+        labelData.push({ val, bg, color });
+      }
+      sheetLabels.push(labelData);
+    }
+    allSheetData.push(sheetLabels);
+  }
+
+  let html = `<!DOCTYPE html><html><head><style>
+    @page { size: 11in 8.5in; margin: 0; }
+    * {
+      margin:0; padding:0; box-sizing:border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+    body { width: 11in; }
+    .sheet {
+      width: 11in; height: 8.5in;
+      display: flex; flex-direction: row;
+      align-items: center; justify-content: center;
+      gap: 0.08in;
+      page-break-after: always;
+    }
+    .sheet:last-child { page-break-after: auto; }
+    .label {
+      width: 1.5in; height: 7.5in;
+      border: 0.75pt solid #333;
+      border-radius: 4pt;
+      display: flex; flex-direction: row;
+      overflow: hidden;
+    }
+    .half {
+      flex: 1;
+      display: flex; flex-direction: row;
+    }
+    .half + .half { border-left: 1px dashed #999; }
+    .content { flex: 1; }
+    .stack {
+      width: 75%;
+      display: flex; flex-direction: column;
+    }
+    .half:first-child .stack { border-right: 1px solid #ccc; }
+    .half:last-child .stack { border-left: 1px solid #ccc; }
+    .box {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      border: 1pt solid #000;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16pt; font-weight: 700;
+      text-align: center;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+  </style></head><body>`;
+
+  for (let S = 0; S < allSheetData.length; S++) {
+    html += '<div class="sheet">';
+    for (let L = 0; L < LABELS_PER_SHEET; L++) {
+      html += '<div class="label">';
+      for (let H = 0; H < 2; H++) {
+        let stackHtml = '<div class="stack">';
+        for (let B = 0; B < NUM_BOXES; B++) {
+          const d = allSheetData[S][L][B];
+          const bgStyle = d.bg ? `background-color:${d.bg};` : '';
+          const clrStyle = d.color ? `color:${d.color};` : '';
+          stackHtml += `<div class="box" style="${bgStyle}${clrStyle}">${d.val || ''}</div>`;
+        }
+        stackHtml += '</div>';
+        if (H === 0) {
+          html += `<div class="half">${stackHtml}<div class="content"></div></div>`;
+        } else {
+          html += `<div class="half"><div class="content"></div>${stackHtml}</div>`;
+        }
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  html += '</body></html>';
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.onload = function() {
+    printWindow.focus();
+    printWindow.print();
+  };
+});
+
+// ── Initialize first sheet ──
+createSheet();
+</script>
+</body>
+</html>
